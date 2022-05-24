@@ -6,7 +6,8 @@
           puntuacion/2,
           total_de_Azulejos/5,
           centro/1,
-          loseta/2.
+          loseta/2,
+          tapa/5.
 
 /*Tiene que haber un metodo principal que es el que llama a todos los metodos a ejecujatarse, para saber el conteo de los azulejos, puntuacion y demas
 Ademas cuando empiece el primero, en cadena, debe seguirle el segundo con la informacion del primero, para tener todo actualizado*/
@@ -52,20 +53,25 @@ inicio_Simulacion_Jugadores_Losetas(4,9).
 inicio_Simulacion(Jugadores,Losetas):-
       inicio_Simulacion_Jugadores_Losetas(Jugadores,Cantidad_Losetas),
       llenar_Losetas([Cantidad_Losetas]),/*crear un array con las losetas*/
-      crear_centro(),
+      inicializar_centro(),
+      inicializar_tapa(),
       asignar_Tablero_Jugador([Jugadores]), /*falta crear un array con los jugadores*/
       ficha_Jugador_Inicial(X1,Jugadores).
 
 /*COMPLETAR*/
 desarrollo_de_la_Partida():-fase_I(Jugadores,Jugador_Inicial,Cantidad_Losetas),fase_II(),fase_III().
 
-crear_centro():-
+inicializar_centro():-
       asserta(centro([])).
+inicializar_tapa():-
+      asserta(tapa([],[],[],[],[])).
 
 fase_I(Jugadores,Jugador_Inicial,Cantidad_Losetas):-
       seleccion_Loseta(Jugador_Inicial,Cantidad_Losetas,Loseta),
       actualizar_Loseta_Tablero_Centro(Jugador_Inicial,Loseta),
       fase_I().
+
+/*COMPLETARRRRRRR IMPORTANTE*/
 seleccion_Loseta(Jugador,Losetas,Loseta).
 
 actualizar_Loseta_Tablero_Centro(Jugador,Loseta):-
@@ -81,16 +87,131 @@ seleccion_Azulejos(Jugador,[X|Resto]):-
       asserta(centro(Azulejos_Centro_Actualizado)),
       seleccion_Azulejos(Jugador,[Resto]).
 
+/*COMPLETARRRRRRR IMPORTANTE*/
 pasar_Azulejo_tablero(X,Jugador,Y).
 
 fase_II([J1|Resto]):-
       espacio_preparacion(J1,[F1],[F2|Resto_F2],[F3|Resto_F3],[F4|Resto_F4],[F5|Resto_F5]),
-      [F1] =\= [],
-      Color is F1,
+      ((F1 =\= [],
+      Color = F1,
+      Fila_a_modificar=0);
+      (fila_completa([F2|Resto_F2],2,"True"),
+      Color = F2,
+      Fila_a_modificar=1);
+      (fila_completa([F3|Resto_F3],3,"True"),
+      Color = F3,
+      Fila_a_modificar=2);
+      (fila_completa([F4|Resto_F4],2,"True"),
+      Color = F4,
+      Fila_a_modificar=3);
+      (fila_completa([F5|Resto_F5],4,"True"),
+      Color = F5,
+      Fila_a_modificar=4)),
 
-      .
+      ubicar_Azulejo_Muro(Color,J1,Fila_a_modificar,Pos),
+      ubicar_resto_azulejos_en_la_tapa(Color,J1,Fila_a_modificar,Fila_a_modificar),
+      actualizar_puntuacion_muro(J1,Fila_a_modificar,Pos),
+      fase_II(Resto).
 
-ubicar_Azulejo_Muro(Color,Jugador, Fila_Actual):-
+
+ubicar_resto_azulejos_en_la_tapa(Color,Jugador,0,0):-!.
+ubicar_resto_azulejos_en_la_tapa(Color,Jugador,Fila_espacio_preparacion,Cant_azulejos):-
+      tapa(Cant_Azulejos_Rojos,Cant_Azulejos_Amarillos,Cant_Azulejos_Blancos,Cant_Azulejos_Negros,Cant_Azulejos_Azules),
+      retract(tapa(Cant_Azulejos_Rojos,Cant_Azulejos_Amarillos,Cant_Azulejos_Blancos,Cant_Azulejos_Negros,Cant_Azulejos_Azules)),
+      ((Color=="rojo",
+      Cant_Azulejos_Rojos_Actualizado is Cant_Azulejos_Rojos+Cant_azulejos,
+      asserta(tapa(Cant_Azulejos_Rojos_Actualizado,Cant_Azulejos_Amarillos,Cant_Azulejos_Blancos,Cant_Azulejos_Negros,Cant_Azulejos_Azules)));
+      (Color=="amarillo",
+      Cant_Azulejos_Amarillos_Actualizado is Cant_Azulejos_Amarillos+Cant_azulejos,
+      asserta(tapa(Cant_Azulejos_Rojos,Cant_Azulejos_Amarillos_Actualizado,Cant_Azulejos_Blancos,Cant_Azulejos_Negros,Cant_Azulejos_Azules)));
+      (Color=="blanco",
+      Cant_Azulejos_Blancos_Actualizado is Cant_Azulejos_Blancos+Cant_azulejos,
+      asserta(tapa(Cant_Azulejos_Rojos,Cant_Azulejos_Amarillos,Cant_Azulejos_Blancos_Actualizado,Cant_Azulejos_Negros,Cant_Azulejos_Azules)));
+      (Color=="negro",
+      Cant_Azulejos_Negros_Actualizado is Cant_Azulejos_Negros+Cant_azulejos,
+      asserta(tapa(Cant_Azulejos_Rojos,Cant_Azulejos_Amarillos,Cant_Azulejos_Blancos,Cant_Azulejos_Negros_Actualizado,Cant_Azulejos_Azules)));
+      (Color=="azul",
+      Cant_Azulejos_Azules_Actualizado is Cant_Azulejos_Azules+Cant_azulejos,
+      asserta(tapa(Cant_Azulejos_Rojos,Cant_Azulejos_Amarillos,Cant_Azulejos_Blancos,Cant_Azulejos_Negros,Cant_Azulejos_Azules_Actualizado)))),
+
+      espacio_preparacion(Jugador,F1,F2,F3,F4,F5),
+      retract(espacio_preparacion(Jugador,F1,F2,F3,F4,F5)),
+      (Fila_espacio_preparacion==0,
+      asserta(espacio_preparacion(Jugador,[],F2,F3,F4,F5)));
+      (Fila_espacio_preparacion==1,
+      asserta(espacio_preparacion(Jugador,F1,[],F3,F4,F5)));
+      (Fila_espacio_preparacion==2,
+      asserta(espacio_preparacion(Jugador,F1,F2,[],F4,F5)));
+      (Fila_espacio_preparacion==3,
+      asserta(espacio_preparacion(Jugador,F1,F2,F3,[],F5)));
+      (Fila_espacio_preparacion==4,
+      asserta(espacio_preparacion(Jugador,F1,F2,F3,F4,[]))).
+
+/*posicion en el muro en el que se coloco un azulejo*/
+actualizar_puntuacion_muro(Jugador,Pos_Fila,Pos_Columna):-
+      muro(Jugador,Tablero,Tablero_boleano),
+      nth0(Pos_Fila,Tablero_boleano,Fila),
+
+      Pos_Columna_der is Pos_Columna+1,
+      recorrer_fila_hacia_derecha(Fila,Pos_Columna_der,Puntuacion_hacia_derecha),
+
+      Pos_Columna_izq is Pos_Columna-1,
+      recorrer_fila_hacia_izquierda(Fila,Pos_Columna_izq,Puntuacion_hacia_izquierda),
+
+      extraer_columna(Tablero_boleano,Pos_Columna,Columna),
+      Pos_Fila_arr is Pos_Fila - 1,
+      recorrer_fila_hacia_derecha(Columna,Pos_Fila_arr,Puntuacion_hacia_abajo),
+      Pos_Fila_abajo is Pos_Fila +1,
+      recorrer_fila_hacia_izquierda(Columna,Pos_Fila,Puntuacion_hacia_arriba),
+
+      Puntuacion_por_filas = 0,
+      ((Puntuacion_hacia_derecha>0;
+      Puntuacion_hacia_izquierda>0),
+      Puntuacion_por_filas is Puntuacion_hacia_derecha+Puntuacion_hacia_izquierda+1),
+
+      Puntuacion_por_columnas = 0,
+      ((Puntuacion_hacia_arriba>0;
+      Puntuacion_hacia_abajo>0),
+      Puntuacion_por_columnas is Puntuacion_hacia_abajo+Puntuacion_hacia_arriba+1),
+
+      puntuacion(Jugador,Puntuacion),
+      Puntuacion_actualizada is Puntuacion + Puntuacion_por_columnas+Puntuacion_por_filas,
+      retract(puntuacion(Jugador,Puntuacion)),
+      asserta(puntuacion(Jugador,Puntuacion_actualizada)).
+
+
+recorrer_fila_hacia_izquierda(Fila,-1,0):-!.
+recorrer_fila_hacia_izquierda(Fila,Pos_Columna,Puntuacion):-
+      nth0(Pos_Columna,Fila,Elemento),
+      (Elemento==0,
+      Puntuacion = 0,
+      !);
+      (Pos_Columna_anterior is Pos_Columna - 1,
+      recorrer_fila_hacia_izquierda(Fila,Pos_Columna_anterior,P1),
+      Puntuacion is P1 + 1).
+
+recorrer_fila_hacia_derecha(Fila,5,0):-!.
+recorrer_fila_hacia_derecha(Fila,Pos_Columna,Puntuacion):-
+      nth0(Pos_Columna,Fila,Elemento),
+      (Elemento==0,
+      Puntuacion = 0,
+      !);
+      (Pos_Columna_sgt is Pos_Columna + 1,
+      recorrer_fila_hacia_derecha(Fila,Pos_Columna_sgt,P1),
+      Puntuacion is P1 + 1).
+
+extraer_columna([], _ ,[]):-!.
+extraer_columna([X|Xs],Indice,[Y|Ys]):-
+      nth0(Indice,X,Y),
+      extraer_columna(Xs,Indice,Ys).
+
+
+fila_completa(Fila,Cant_casillas_llenas,Var_booleana):-
+      length(Fila,Len),
+      ((Len==Cant_casillas_llenas,
+      Var_booleana = "True");
+      (Var_booleana="False")).
+ubicar_Azulejo_Muro(Color,Jugador, Fila_Actual,Position):-
       muro(Jugador,Tablero_Colores,Tablero_boleano),
       ((Color == rojo,
       Position = 3);
@@ -103,19 +224,97 @@ ubicar_Azulejo_Muro(Color,Jugador, Fila_Actual):-
       (Color == negro,
       Position = 4)),
       nth0(Fila_Actual,Tablero_boleano,Fila_a_modificar),
-      crear_fila_actualizada_muro(Fila_a_modificar,0,Position,Fila_actualizada),
-      insert(Tablero_boleano,Fila_Actual,Fila_actualizada,Tablero_boleano_Actualizado).
+      crear_fila_actualizada_muro(Fila_a_modificar,0,Position,Fila_en_Proceso,Fila_Actualizada),
+      insertar_tablero_actualizado(Tablero_boleano,Fila_Actual,Fila_Actualizada,Tablero_boleano_Actualizado),
+      retract(muro(Jugador,Tablero_Colores,Tablero_boleano)),
+      asserta(muro(Jugador,Tablero_Colores,Tablero_boleano_Actualizado)).
 
-crear_fila_actualizada_muro(Fila,Posicion,Posicion_a_modificar,Fila):-
-      Posicion==Posicion_a_modificar,
-      insert()
+insertar_tablero_actualizado(Tablero_boleano,Pos_fila_modificada,Fila_modificada,Tablero_booleano_actualizado):-
+      (Pos_fila_modificada==0,
+      nth0(1,Tablero_boleano,F2),
+      nth0(2,Tablero_boleano,F3),
+      nth0(3,Tablero_boleano,F4),
+      nth0(4,Tablero_boleano,F5),
+      Tablero_booleano_actualizado =[Fila_modificada,F2,F3,F4,F5]);
 
+      (Pos_fila_modificada==1,
+      nth0(0,Tablero_boleano,F1),
+      nth0(2,Tablero_boleano,F3),
+      nth0(3,Tablero_boleano,F4),
+      nth0(4,Tablero_boleano,F5),
+      Tablero_booleano_actualizado =[F1,Fila_modificada,F3,F4,F5]);
 
-insert([X|Y],position_inicial,position,[W]):-
-      position_inicial==position,
-      X is 1,
+      (Pos_fila_modificada==2,
+      nth0(0,Tablero_boleano,F1),
+      nth0(1,Tablero_boleano,F2),
+      nth0(3,Tablero_boleano,F4),
+      nth0(4,Tablero_boleano,F5),
+      Tablero_booleano_actualizado =[F1,F2,Fila_modificada,F4,F5]);
+
+      (Pos_fila_modificada==3,
+      nth0(0,Tablero_boleano,F1),
+      nth0(1,Tablero_boleano,F2),
+      nth0(2,Tablero_boleano,F3),
+      nth0(4,Tablero_boleano,F5),
+      Tablero_booleano_actualizado =[F1,F2,F3,Fila_modificada,F5]);
+
+      (Pos_fila_modificada==4,
+      nth0(0,Tablero_boleano,F1),
+      nth0(1,Tablero_boleano,F2),
+      nth0(2,Tablero_boleano,F3),
+      nth0(3,Tablero_boleano,F4),
+      Tablero_booleano_actualizado =[F1,F2,F3,F4,Fila_modificada]).
+
+crear_fila_actualizada_muro(Fila,Pos_Actual,Pos_a_modificar,Fila_en_Proceso,Fila_Actualizada):-
+      length(Fila, Len),
+      Pos_actual == Len,
+      Fila_Actualizada = Fila_en_Proceso,
+      !.
+crear_fila_actualizada_muro(Fila,Pos_Actual,Pos_a_modificar,Fila_en_Proceso,Fila_Actualizada):-
+      ((Pos_Actual==Pos_a_modificar,
+      add(1, Fila_en_Proceso, Z1));
+      (nth0(Pos_Actual,Fila,Elemento),
+      add(Elemento,Fila_en_Proceso,Z1))),
+      Pos_Actual_sgt is Pos_Actual+1,
+      crear_fila_actualizada_muro(Fila,Pos_Actual_sgt,Pos_a_modificar,Z1,R1),
+      Fila_Actualizada = R1.
+
+add(X,[],[X]).
+add(X,[Y|Z],[Y|W]):-add(X,Z,W).
       
 fase_III().
+
+fin_partida().
+
+
+fila_Muro_Completada([J1|Resto],Var_booleana_general):-
+      muro(J1,Tablero,Tablero_boleano),
+      fila_completa(Tablero_boleano,0,Var_booleana),
+      (Var_booleana=='True',
+      Var_booleana_general='True',!);
+      (fila_Muro_Completada(Resto,Var_booleana_general1),
+      Var_booleana_general=Var_booleana_general1).
+
+fila_completa(_,5,'False'):-!.
+fila_Completada(Tablero,Pos_fila_actual,Var_boolena):-
+      nth0(Pos_fila_actual,Tablero,Fila),
+
+      nth0(0,Fila,Elem_pos_0),
+      nth0(1,Fila,Elem_pos_1),
+      nth0(2,Fila,Elem_pos_2),
+      nth0(3,Fila,Elem_pos_3),
+      nth0(4,Fila,Elem_pos_4),
+
+      (Elem_pos_0==1,
+      Elem_pos_1==1,
+      Elem_pos_2==1,
+      Elem_pos_3==1,
+      Elem_pos_4==1,
+      Var_booleana='True',
+      !);
+      Pos_fila_sgt is Pos_fila_actual +1,
+      fila_Completada(Tablero,Pos_fila_sgt,Var_booleana_sgt),
+      Var_booleana = Var_booleana_sgt.
 
 ficha_Jugador_Inicial(X,Jugadores):-
       random(1,5,X),
@@ -128,8 +327,6 @@ llenar_Losetas([Loseta|Resto]):-
       llenar_Losetas([Resto]).
 
 push(X,Y,[X|Y]).
-
-vaciar_Loseta(Numero_Loseta,Losetas).    
 
 asignacion_Azulejos_Loseta([Loseta_Llena]):-
       random(1,5,Y1),
