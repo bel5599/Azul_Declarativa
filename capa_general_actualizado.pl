@@ -7,7 +7,9 @@
           total_de_Azulejos/5,
           centro/1,
           loseta/2,
-          tapa/5.
+          tapa/5,
+          cantidad_filas_completadas/2,
+          jugadores_ganadores/1.
 
 /*Tiene que haber un metodo principal que es el que llama a todos los metodos a ejecujatarse, para saber el conteo de los azulejos, puntuacion y demas
 Ademas cuando empiece el primero, en cadena, debe seguirle el segundo con la informacion del primero, para tener todo actualizado*/
@@ -28,20 +30,6 @@ espacio_preparacion(Jugador,[],[],[],[],[]).
 
 suelo(Jugador,[null,null,null,null,null,null,null]).
 
-%M1: matriz donde se encuentra la ubicacion de los colores
-%M2: matriz que guarda si ya hay algun azulejo en la posicion x,y
-muro(Jugador,[[azul,amarillo,rojo,negro,blanco],
-      [blanco,azul,amarillo,rojo,negro],
-      [negro,blanco,azul,amarillo,rojo],
-      [rojo,negro,blanco,azul,amarillo],
-      [amarillo,rojo,negro,blanco,azul]],
-
-      [[0,0,0,0,0],
-      [0,0,0,0,0],
-      [0,0,0,0,0],
-      [0,0,0,0,0],
-      [0,0,0,0,0]]).*/
-
 
 /*Inicio del juego
 segun la cantidad de jugadores, la cantidad de losetas de fabricas que tocan
@@ -55,16 +43,29 @@ inicio_Simulacion(Jugadores,Losetas):-
       llenar_Losetas([Cantidad_Losetas]),/*crear un array con las losetas*/
       inicializar_centro(),
       inicializar_tapa(),
+      inicializar_cantidad_filas_completadas([Jugadores]),
       asignar_Tablero_Jugador([Jugadores]), /*falta crear un array con los jugadores*/
-      ficha_Jugador_Inicial(X1,Jugadores).
+      ficha_Jugador_Inicial(X1,Jugadores),
+      desarrollo_de_la_Partida().
 
 /*COMPLETAR*/
-desarrollo_de_la_Partida():-fase_I(Jugadores,Jugador_Inicial,Cantidad_Losetas),fase_II(),fase_III().
+desarrollo_de_la_Partida():-
+      fase_I(Jugadores,Jugador_Inicial,Cantidad_Losetas),
+      fase_II([Jugadores]),
+      fila_Muro_Completada([Jugadores],Fila_llena),
+      (Fila_llena=='True',
+      fin_partida(),
+      jugadores_ganadores([Jugadores],Ganadores),
+      asserta(jugadores_ganadores(Ganadores)));
+      (fase_III()).
 
 inicializar_centro():-
       asserta(centro([])).
 inicializar_tapa():-
       asserta(tapa([],[],[],[],[])).
+inicializar_cantidad_filas_completadas([J1|Resto]):-
+      asserta(cantidad_filas_completadas(J1,0)),
+      inicializar_cantidad_filas_completadas(Resto).
 
 fase_I(Jugadores,Jugador_Inicial,Cantidad_Losetas):-
       seleccion_Loseta(Jugador_Inicial,Cantidad_Losetas,Loseta),
@@ -95,16 +96,16 @@ fase_II([J1|Resto]):-
       ((F1 =\= [],
       Color = F1,
       Fila_a_modificar=0);
-      (fila_completa([F2|Resto_F2],2,"True"),
+      (fila_completa_espacio_preparacion([F2|Resto_F2],2,"True"),
       Color = F2,
       Fila_a_modificar=1);
-      (fila_completa([F3|Resto_F3],3,"True"),
+      (fila_completa_espacio_preparacion([F3|Resto_F3],3,"True"),
       Color = F3,
       Fila_a_modificar=2);
-      (fila_completa([F4|Resto_F4],2,"True"),
+      (fila_completa_espacio_preparacion([F4|Resto_F4],4,"True"),
       Color = F4,
       Fila_a_modificar=3);
-      (fila_completa([F5|Resto_F5],4,"True"),
+      (fila_completa_espacio_preparacion([F5|Resto_F5],5,"True"),
       Color = F5,
       Fila_a_modificar=4)),
 
@@ -206,7 +207,7 @@ extraer_columna([X|Xs],Indice,[Y|Ys]):-
       extraer_columna(Xs,Indice,Ys).
 
 
-fila_completa(Fila,Cant_casillas_llenas,Var_booleana):-
+fila_completa_espacio_preparacion(Fila,Cant_casillas_llenas,Var_booleana):-
       length(Fila,Len),
       ((Len==Cant_casillas_llenas,
       Var_booleana = "True");
@@ -282,23 +283,194 @@ crear_fila_actualizada_muro(Fila,Pos_Actual,Pos_a_modificar,Fila_en_Proceso,Fila
 add(X,[],[X]).
 add(X,[Y|Z],[Y|W]):-add(X,Z,W).
       
-fase_III().
+fase_III():-
+      llenar_Losetas([Cantidad_Losetas]),
+      suma_losetas(Cantidad_Losetas,Total),
+      (Total==0,
+      fin_partida());
+      (desarrollo_de_la_Partida()).
 
-fin_partida().
+
+suma_losetas([],0):-!.
+suma_losetas([L1|Resto],Total):-
+      loseta(L1,Az),
+      nth0(0,Az,Az1),
+      nth0(1,Az,Az2),
+      nth0(2,Az,Az3),
+      nth0(3,Az,Az4),
+      suma_losetas(Resto,Total1),
+      Total is Total1 + Az1 + Az2 + Az3 + Az4.
 
 
-fila_Muro_Completada([J1|Resto],Var_booleana_general):-
+jugadores_ganadores([J1|Resto],Jugadores):-
+      puntuacion_maxima([J1|Resto],Punt_max),
+      jugadores_con_puntuacion_maxima([J1|Resto],Punt_max,[],[Jugadores_con_punt]),
+      length(Jugadores_con_punt,Len),
+      (Len>1,
+      cantidad_filas_llenas_maxima([J1|Resto],Cant_max),
+      jugadores_con_filas_llenas_maxima([J1|Resto],Cant_max,[],[Jugadores_ganadores]),
+      Jugadores = Jugadores_ganadores);
+      Jugadores =Jugadores_con_punt.
+
+
+jugadores_con_puntuacion_maxima([],P,Z1,Z1):-!.
+jugadores_con_puntuacion_maxima([J1|Resto],Punt_max,Lista_en_proceso,Jugadores):-
+      puntuacion(J1,Puntuacion_jugador_actual),
+      (Puntuacion_jugador_actual==Punt_max,
+      add(J1,Lista_en_proceso,Lista_en_proceso_act),
+      jugadores_con_puntuacion_maxima(Resto,Punt_max,Lista_en_proceso_act,Jugadores_act),
+      Jugadores = [Jugadores_act]).
+
+puntuacion_maxima([],0):-!.
+puntuacion_maxima([J1|Resto],Punt_max):-
+      puntuacion(J1,Puntuacion_jugador_actual),
+      puntuacion_maxima(Resto,Punt_max_sgt),
+      (Puntuacion_jugador_actual>Punt_max_sgt,
+      Punt_max = Puntuacion_jugador_actual);
+      (Punt_max=Punt_max_sgt).
+
+cantidad_filas_llenas_maxima([],0):-!.
+cantidad_filas_llenas_maxima([J1|Resto],Cant_max):-
+      cantidad_filas_completadas(J1,Cant_filas_jugador_actual),
+      cantidad_filas_llenas_maxima(Resto,Cant_max_sgt),
+      (Cant_filas_jugador_actual>Cant_max_sgt,
+      Cant_max = Cant_filas_jugador_actual);
+      (Cant_max=Cant_max_sgtt).
+
+jugadores_con_filas_llenas_maxima([],P,Z1,Z1):-!.
+jugadores_con_filas_llenas_maxima([J1|Resto],Filas_llenas_max,Lista_en_proceso,Jugadores):-
+      cantidad_filas_completadas(J1,Cant_filas_jugador_actual),
+      (Cant_filas_jugador_actual==Filas_llenas_max,
+      add(J1,Lista_en_proceso,Lista_en_proceso_act),
+      jugadores_con_filas_llenas_maxima(Resto,Filas_llenas_max,Lista_en_proceso_act,Jugadores_act),
+      Jugadores = [Jugadores_act]).
+
+
+fin_partida([J1|Resto]):-
       muro(J1,Tablero,Tablero_boleano),
-      fila_completa(Tablero_boleano,0,Var_booleana),
-      (Var_booleana=='True',
-      Var_booleana_general='True',!);
-      (fila_Muro_Completada(Resto,Var_booleana_general1),
-      Var_booleana_general=Var_booleana_general1).
+      Puntuacion_por_filas=0,
+      Puntuacion_por_columnas=0,
+      Puntuacion_por_color_azulejo=0,
 
-fila_completa(_,5,'False'):-!.
-fila_Completada(Tablero,Pos_fila_actual,Var_boolena):-
-      nth0(Pos_fila_actual,Tablero,Fila),
+      /*Puntuacion por las columnas*/
+      extraer_columna(Tablero_boleano,0,Colum_0),
+      extraer_columna(Tablero_boleano,1,Colum_1),
+      extraer_columna(Tablero_boleano,2,Colum_2),
+      extraer_columna(Tablero_boleano,3,Colum_3),
+      extraer_columna(Tablero_boleano,4,Colum_4),
+      (fila_o_columna_Completa(Colum_0,0,'True'),
+      Puntuacion_por_columnas is Puntuacion_por_columnas+7),
+      (fila_o_columna_Completa(Colum_1,1,'True'),
+      Puntuacion_por_columnas is Puntuacion_por_columnas+7),
+      (fila_o_columna_Completa(Colum_2,2,'True'),
+      Puntuacion_por_columnas is Puntuacion_por_columnas+7),
+      (fila_o_columna_Completa(Colum_3,3,'True'),
+      Puntuacion_por_columnas is Puntuacion_por_columnas+7),
+      (fila_o_columna_Completa(Colum_4,4,'True'),
+      Puntuacion_por_columnas is Puntuacion_por_columnas+7),
 
+
+      /*Puntuacion por las filas*/
+      Cant_filas_comp=0,
+      nth0(0,Tablero_boleano,Fila_0),
+      nth0(1,Tablero_boleano,Fila_1),
+      nth0(2,Tablero_boleano,Fila_2),
+      nth0(3,Tablero_boleano,Fila_3),
+      nth0(4,Tablero_boleano,Fila_4),
+      (fila_o_columna_Completa(Fila_0,0,'True'),
+      Puntuacion_por_filas is Puntuacion_por_filas+2,
+      Cant_filas_comp is Cant_filas_comp+1),
+      (fila_o_columna_Completa(Fila_1,1,'True'),
+      Puntuacion_por_filas is Puntuacion_por_filas+2,
+      Cant_filas_comp is Cant_filas_comp+1),
+      (fila_o_columna_Completa(Fila_2,2,'True'),
+      Puntuacion_por_filas is Puntuacion_por_filas+2,
+      Cant_filas_comp is Cant_filas_comp+1),
+      (fila_o_columna_Completa(Fila_3,3,'True'),
+      Puntuacion_por_filas is Puntuacion_por_filas+2,
+      Cant_filas_comp is Cant_filas_comp+1),
+      (fila_o_columna_Completa(Fila_4,4,'True'),
+      Puntuacion_por_filas is Puntuacion_por_filas+2,
+      Cant_filas_comp is Cant_filas_comp+1),
+
+      /*Puntuacion por color azulejo*/
+      /*Azulejo Azul*/
+      (azulejo_color_en_Muro(0,0,Fila_0,'True'),
+      azulejo_color_en_Muro(1,1,Fila_1,'True'),
+      azulejo_color_en_Muro(2,2,Fila_2,'True'),
+      azulejo_color_en_Muro(3,3,Fila_3,'True'),
+      azulejo_color_en_Muro(4,4,Fila_4,'True'),
+      Puntuacion_por_color_azulejo is Puntuacion_por_color_azulejo+10),
+      /*Azulejo Rojo*/
+      (azulejo_color_en_Muro(0,2,Fila_0,'True'),
+      azulejo_color_en_Muro(1,3,Fila_1,'True'),
+      azulejo_color_en_Muro(2,4,Fila_2,'True'),
+      azulejo_color_en_Muro(3,0,Fila_3,'True'),
+      azulejo_color_en_Muro(4,1,Fila_4,'True'),
+      Puntuacion_por_color_azulejo is Puntuacion_por_color_azulejo+10),
+      /*Azulejo Amarillo*/
+      (azulejo_color_en_Muro(0,1,Fila_0,'True'),
+      azulejo_color_en_Muro(1,2,Fila_1,'True'),
+      azulejo_color_en_Muro(2,3,Fila_2,'True'),
+      azulejo_color_en_Muro(3,4,Fila_3,'True'),
+      azulejo_color_en_Muro(4,0,Fila_4,'True'),
+      Puntuacion_por_color_azulejo is Puntuacion_por_color_azulejo+10),
+      /*Azulejo Blanco*/
+      (azulejo_color_en_Muro(0,4,Fila_0,'True'),
+      azulejo_color_en_Muro(1,0,Fila_1,'True'),
+      azulejo_color_en_Muro(2,1,Fila_2,'True'),
+      azulejo_color_en_Muro(3,2,Fila_3,'True'),
+      azulejo_color_en_Muro(4,3,Fila_4,'True'),
+      Puntuacion_por_color_azulejo is Puntuacion_por_color_azulejo+10),
+      /*Azulejo Negro*/
+      (azulejo_color_en_Muro(0,3,Fila_0,'True'),
+      azulejo_color_en_Muro(1,4,Fila_1,'True'),
+      azulejo_color_en_Muro(2,0,Fila_2,'True'),
+      azulejo_color_en_Muro(3,1,Fila_3,'True'),
+      azulejo_color_en_Muro(4,2,Fila_4,'True'),
+      Puntuacion_por_color_azulejo is Puntuacion_por_color_azulejo+10)
+
+      cantidad_filas_completadas(J1,Cant),
+      retract(cantidad_filas_completadas(J1,Cant)),
+      asserta(cantidad_filas_completadas(J1,Cant_filas_comp)),
+
+      puntuacion(J1,Puntuacion),
+      Puntuacion_actualizada is Puntuacion + Puntuacion_por_color_azulejo+Puntuacion_por_columnas+Puntuacion_por_filas,
+      retract(puntuacion(J1,Puntuacion)),
+      asserta(puntuacion(J1,Puntuacion_actualizada)),
+      fin_partida(Resto).
+
+
+azulejo_color_en_Muro(Pos_fila,Pos_columna,Fila,Casilla_llena):-
+      (Pos_fila==0,
+      nth0(Pos_columna,Fila,Elem),
+      Elem==1,
+      Casilla_llena='True');
+
+      (Pos_fila==1,
+      nth0(Pos_columna,Fila,Elem),
+      Elem==1,
+      Casilla_llena='True');
+
+      (Pos_fila==2,
+      nth0(Pos_columna,Fila,Elem),
+      Elem==1,
+      Casilla_llena='True');
+
+      (Pos_fila==3,
+      nth0(Pos_columna,Fila,Elem),
+      Elem==1,
+      Casilla_llena='True');
+
+      (Pos_fila==4,
+      nth0(Pos_columna,Fila,Elem),
+      Elem==1,
+      Casilla_llena='True');
+
+      Casilla_llena='False'.
+
+
+fila_o_columna_Completa(Fila,Pos,Fila_o_columna_completa):-
       nth0(0,Fila,Elem_pos_0),
       nth0(1,Fila,Elem_pos_1),
       nth0(2,Fila,Elem_pos_2),
@@ -310,11 +482,28 @@ fila_Completada(Tablero,Pos_fila_actual,Var_boolena):-
       Elem_pos_2==1,
       Elem_pos_3==1,
       Elem_pos_4==1,
-      Var_booleana='True',
+      Fila_o_columna_completa='True',
+      !);
+      (Fila_o_columna_completa='False').
+
+fila_Muro_Completada([J1|Resto],Fila_llena_general):-
+      muro(J1,Tablero,Tablero_boleano),
+      filas_completa_Muro(Tablero_boleano,0,Fila_llena_bool),
+      (Fila_llena_bool=='True',
+      Fila_llena_general='True',!);
+      (filas_Muro_Completada(Resto,Fila_llena_general1),
+      Fila_llena_general=Fila_llena_general1).
+
+filas_completa_Muro(_,5,'False'):-!.
+filas_completa_Muro(Tablero,Pos_fila_actual,Fila_actual_llena):-
+      nth0(Pos_fila_actual,Tablero,Fila),
+      fila_o_columna_Completa(Fila,Pos_fila_actual,Fila_actual_llena),
+
+      (Fila_actual_llena='True',
       !);
       Pos_fila_sgt is Pos_fila_actual +1,
-      fila_Completada(Tablero,Pos_fila_sgt,Var_booleana_sgt),
-      Var_booleana = Var_booleana_sgt.
+      fila_completa_Muro(Tablero,Pos_fila_sgt,Fila_llena_sgt),
+      Fila_actual_llena = Fila_llena_sgt.
 
 ficha_Jugador_Inicial(X,Jugadores):-
       random(1,5,X),
@@ -322,14 +511,48 @@ ficha_Jugador_Inicial(X,Jugadores):-
 
 llenar_Losetas([]):-!.
 llenar_Losetas([Loseta|Resto]):-
-      asignacion_Azulejos_Loseta([W]),
-      asserta(loseta(Loseta,[W])),
-      llenar_Losetas([Resto]).
+      asignacion_Azulejos_Loseta(W),
+      asserta(loseta(Loseta,W)),
+      llenar_Losetas(Resto).
 
 push(X,Y,[X|Y]).
 
-asignacion_Azulejos_Loseta([Loseta_Llena]):-
-      random(1,5,Y1),
+asignacion_Azulejos_Loseta(Loseta_Llena):-
+      
+      ((asignar_azulejo_Loseta(Y1,Bolsa_y_tapa_vacia1),
+      Bolsa_y_tapa_vacia1=='False');
+      (Y1=0)),
+
+      ((asignar_azulejo_Loseta(Y2,Bolsa_y_tapa_vacia2),
+      Bolsa_y_tapa_vacia2=='False');
+      (Y2=0)),
+
+      ((asignar_azulejo_Loseta(Y3,Bolsa_y_tapa_vacia3),
+      Bolsa_y_tapa_vacia3=='False');
+      (Y3=0)),
+
+      ((asignar_azulejo_Loseta(Y4,Bolsa_y_tapa_vacia4),
+      Bolsa_y_tapa_vacia4=='False');
+      (Y4=0)),
+      ((Y1=\=0,
+      asignar_color(Y1,X1));
+      (X1=0)),
+
+      ((Y2=\=0,
+      asignar_color(Y2,X2));
+      (X2=0)),
+
+      ((Y3=\=0,
+      asignar_color(Y3,X3));
+      (X3=0)),
+
+      ((Y4=\=0,
+      asignar_color(Y4,X4));
+      (X4=0)),
+
+      Loseta_Llena=[X1,X2,X3,X4].
+
+      /*random(1,5,Y1),
       asignar_color(Y1,X1),
       actualizar_cantidad_Azulejos(Y1),
       random(1,5,Y2),
@@ -341,12 +564,63 @@ asignacion_Azulejos_Loseta([Loseta_Llena]):-
       random(1,5,Y4),
       asignar_color(Y4,X4),
       actualizar_cantidad_Azulejos(Y4),
-      Loseta_Llena=[X1,X2,X3,X4].
+      Loseta_Llena=[X1,X2,X3,X4].*/
+
+asignar_azulejo_Loseta(Azulejo,Game_over):-
+      (azulejos_en_la_bolsa('True'),
+      buscar_Azulejo_en_la_bolsa(Y),
+      actualizar_cantidad_Azulejos(Y1),
+      Azulejo=Y,
+      Game_over='False');
+      (rellenar_azulejos_tapa_bolsa('True'),
+      buscar_Azulejo_en_la_bolsa(Y),
+      actualizar_cantidad_Azulejos(Y1),
+      Azulejo=Y,
+      Game_over='False');
+      Game_over='True'.
+
+rellenar_azulejos_tapa_bolsa(Tapa_vacia):-
+      tapa(R,Am,B,N,Az),
+      Total is R+Am+B+N+Az,
+      (Total==0,
+      Tapa_vacia='True',
+      !);
+      (total_de_Azulejos(Rojos,Amarillos,Blancos,Negros,Azules),
+      Rojos_Act is Rojos+R,
+      Amarillos_Act is Amarillos+Am,
+      Blancos_Act is Blancos+B,
+      Negros_Act is Negros+N,
+      Azules_Act is Azules+Az,
+      retract(tapa(R,Am,B,N,Az)),
+      asserta(tapa(0,0,0,0,0)),
+      retract(total_de_Azulejos(Rojos,Amarillos,Blancos,Negros,Azules)),
+      asserta(total_de_Azulejos(Rojos_Act,Amarillos_Act,Blancos_Act,Negros_Act,Azules_Act)),
+      Tapa_vacia='False').
+
+azulejos_en_la_bolsa(Bolsa_vacia):-
+      total_de_Azulejos(Rojos,Amarillos,Blancos,Negros,Azules)
+      Total is Rojos+Amarillos+Blancos+Negros+Azules,
+      (Total==0,
+      Bolsa_vacia='True',!);
+      Bolsa_vacia='False'.
+
+
+buscar_Azulejo_en_la_bolsa(Azulejo):-
+      total_de_Azulejos(Rojos,Amarillos,Blancos,Negros,Azules),
+      random(1,5,Color),
+      Cant_Azulejos =[Rojos,Amarillos,Blancos,Negros,Azules],
+      Pos is Color -1,
+      nth0(Pos,Cant_Azulejos,Cant),
+      ((Cant>=0,
+      Azulejo = Color);
+      (buscar_Azulejo_en_la_bolsa(Azulejo))).
+
 
 asignar_color(X,Y):-azulejo(X,Y).
 
 actualizar_cantidad_Azulejos(Color_de_Azulejo):-
       total_de_Azulejos(Rojos,Amarillos,Blancos,Negros,Azules),
+      
       retract(total_de_Azulejos(Rojos,Amarillos,Blancos,Negros,Azules)),
       (Color_de_Azulejo==1,
       RojosN is Rojos-1,
